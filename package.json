@@ -1,0 +1,39 @@
+{
+  "name": "personal-lifestyle-assistant-agent",
+  "version": "1.0.0",
+  "description": "个人生活助理 Agent - 智能的生活助手工具",
+  "main": "index.js",
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:frontend": "cd frontend && npm run build",
+    "install:frontend": "cd frontend && npm install",
+    "dev:backend": "cd backend && python main.py",
+    "install:backend": "cd backend && pip install -r requirements.txt",
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "install:all": "npm run install:frontend && npm run install:backend",
+    "build": "npm run build:frontend"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "lifestyle",
+    "assistant",
+    "vue3",
+    "langchain",
+    "fastapi",
+    "chatbot"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/PersonalLifestyleAssistantAgent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/PersonalLifestyleAssistantAgent/issues"
+  },
+  "homepage": "https://github.com/yourusername/PersonalLifestyleAssistantAgent#readme"
+}
