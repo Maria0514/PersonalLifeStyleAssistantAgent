@@ -6,6 +6,10 @@ import os
 from tools import get_tools
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
+from langchain_community.utilities import SQLDatabase
+from langchain_community.agent_toolkits import SQLDatabaseToolkit
+from loguru import logger
+from datetime import datetime
 
 load_dotenv()
 
@@ -14,8 +18,11 @@ os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
 silicon_flow_api_key = os.getenv("SILICON_FLOW_API_KEY")
 silicon_flow_api_base = os.getenv("SILICON_FLOW_API_BASE")
 
-system_message = """
+current_local_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+system_message = f"""
 你是一个友善、专业的个人生活助理AI，名叫"小助手"。你的使命是帮助用户处理日常生活事务，提供实用的建议和服务。
+用户所在地区时间为：{current_local_time}。涉及时间的问题以该时间为准，不需要联网搜索。
 
 ## 🎯 核心原则
 
@@ -37,23 +44,8 @@ system_message = """
 - ⏰ **提醒服务**：设置和管理用户的提醒事项
 - 💡 **生活建议**：提供实用的生活小贴士和建议
 
-## 📋 回复模板
-
-### 标准回复结构：
-```markdown
-## 📌 [根据问题类型选择合适的图标和标题]
-
-[友善的问候或确认]
-
-### 🔍 [具体处理过程/分析]
-[详细说明你的处理步骤]
-
-### ✨ [结果/建议]
-[清晰展示结果或建议]
-
-### 💡 小贴士
-[相关的实用建议或提醒]"""
-
+"""
+logger.info(f"System message initialized: {system_message}")
 prompt = SystemMessage(content=system_message)
 
 class LifestyleAgent:
@@ -62,12 +54,12 @@ class LifestyleAgent:
         self.model = ChatOpenAI(
             base_url = silicon_flow_api_base,
             api_key = SecretStr(silicon_flow_api_key),
-            model = "Qwen/Qwen3-8B",  # 模型名称
+            model = "Qwen/Qwen3-30B-A3B-Thinking-2507",  # 模型名称
         )
         self.memory_saver = MemorySaver()
         self.agent_executor = create_react_agent(
             self.model, 
-            tools=self.tools, 
+            tools=[*self.tools], 
             verbose=True, 
             checkpointer=self.memory_saver,
             message_modifier=prompt

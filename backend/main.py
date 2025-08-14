@@ -5,7 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Literal
 from datetime import datetime
 from agents.lifestyle_agent import LifestyleAgent
-import time
+import time, os
+
 
 origins = [
     "http://localhost:5173",
