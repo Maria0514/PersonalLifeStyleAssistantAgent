@@ -19,9 +19,38 @@ export interface ChatResponse {
 // 聊天服务类
 class ChatService {
   private baseUrl: string
+  private sessionId: string
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl
+    // 生成基于日期的会话ID，页面刷新前保持不变
+    this.sessionId = this.generateSessionId()
+  }
+
+  /**
+   * 生成会话ID
+   * @returns 基于日期的会话ID
+   */
+  private generateSessionId(): string {
+    const now = new Date()
+    const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+    const timeStr = now.getTime().toString().slice(-6) // 取时间戳后6位
+    return `session_${dateStr}_${timeStr}`
+  }
+
+  /**
+   * 获取当前会话ID
+   * @returns 当前会话ID
+   */
+  getSessionId(): string {
+    return this.sessionId
+  }
+
+  /**
+   * 重置会话（生成新的会话ID）
+   */
+  resetSession(): void {
+    this.sessionId = this.generateSessionId()
   }
 
   /**
@@ -38,7 +67,8 @@ class ChatService {
         },
         body: JSON.stringify({
           message: message,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          session_id: this.sessionId
         })
       })
 

@@ -24,6 +24,7 @@ app.add_middleware(
 class UserMessage(BaseModel):
     message: str
     timestamp: str
+    session_id: str = None  # 前端传递的会话ID
 
 class Metadata(BaseModel):
     tokens_used: float = 0.0
@@ -36,18 +37,21 @@ class ResponseMessage(BaseModel):
     tool_used: list[str] = []
     metadata: Metadata = Metadata()
     
+life_agent = LifestyleAgent()
 
 @app.post("/message")
 async def receive_message(message: UserMessage):
-    thread_id = f"session_{int(time.time())}"
+    thread_id = message.session_id or f"session_{int(time.time())}"
     config = {
         "configurable":{
             "thread_id": thread_id
         }
     }
     start_time = time.perf_counter()
-    
-    response, token_usage, tool_usage = await LifestyleAgent().process_message(message.message, config=config)
+
+    logger.info(f"session id: {thread_id}")
+
+    response, token_usage, tool_usage = await life_agent.process_message(message.message, config=config)
     logger.info(f"Received message: {message.message} at {message.timestamp}")
 
     end_time = time.perf_counter()

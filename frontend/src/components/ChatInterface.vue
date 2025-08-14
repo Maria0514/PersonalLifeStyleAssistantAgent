@@ -2,8 +2,28 @@
   <div class="chat-container">
     <!-- 头部标题 -->
     <header class="chat-header">
-      <h1>个人生活助理 Agent</h1>
-      <p>我可以帮您查询天气、进行计算、提供记账建议等各种生活事务</p>
+      <div class="header-content">
+        <div class="title-section">
+          <h1>个人生活助理 Agent</h1>
+          <p>我可以帮您查询天气、进行计算、提供记账建议等各种生活事务</p>
+        </div>
+        <div class="session-section">
+          <div class="session-info">
+            <span class="session-label">会话ID:</span>
+            <span class="session-id">{{ sessionId }}</span>
+          </div>
+          <button 
+            @click="startNewSession" 
+            class="new-session-btn"
+            title="开始新对话"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M12 5v14M5 12h14"></path>
+            </svg>
+            新对话
+          </button>
+        </div>
+      </div>
     </header>
 
     <!-- 消息显示区域 -->
@@ -126,6 +146,19 @@
 <script lang="ts">
 import { defineComponent, ref, nextTick, onMounted } from 'vue'
 import { chatService, type ChatMetadata } from '../services/chatService'
+import { marked } from 'marked'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/github.css'
+
+// 配置 marked 渲染器
+const renderer = new marked.Renderer()
+
+// 配置 marked 选项
+marked.setOptions({
+  renderer: renderer,
+  breaks: true, // 支持换行
+  gfm: true,    // GitHub 风格的 Markdown
+})
 
 interface Message {
   id: number
@@ -152,6 +185,7 @@ const isUsingTool = ref(false)
 const currentToolId = ref<string>('')
 const messagesContainer = ref<HTMLElement>()
 const messageInput = ref<HTMLTextAreaElement>()
+const sessionId = ref<string>('')
 
 const quickActions: QuickAction[] = [
   { label: '查询天气', text: '今天的天气怎么样？' },
@@ -161,11 +195,6 @@ const quickActions: QuickAction[] = [
 ]
 
 let messageIdCounter = 0
-
-// 初始化欢迎消息
-onMounted(() => {
-  addBotMessage('您好！我是您的个人生活助理，可以帮您处理各种日常生活事务。请问有什么我可以帮助您的吗？')
-})
 
 // 发送消息
 const sendMessage = async () => {
@@ -278,9 +307,42 @@ const scrollToBottom = () => {
   })
 }
 
-// 格式化消息内容
+// 格式化消息内容 - 支持 Markdown
 const formatMessage = (text: string) => {
-  return text.replace(/\n/g, '<br>')
+  try {
+    // 首先检查是否是 Markdown 格式（包含 Markdown 标记）
+    const hasMarkdown = /[#*`\[\]_~]|^-\s|^\d+\.\s/m.test(text)
+    
+    if (hasMarkdown) {
+      // 解析 Markdown
+      let html = marked(text) as string
+      
+      // 代码高亮处理
+      html = html.replace(/<pre><code class="language-(\w+)">([\s\S]*?)<\/code><\/pre>/g, (match, lang, code) => {
+        try {
+          const language = hljs.getLanguage(lang) ? lang : 'plaintext'
+          const highlighted = hljs.highlight(code, { language }).value
+          return `<pre><code class="hljs language-${lang}">${highlighted}</code></pre>`
+        } catch (e) {
+          return match
+        }
+      })
+      
+      // 普通代码块高亮
+      html = html.replace(/<code>([^<]+)<\/code>/g, (match, code) => {
+        return `<code class="inline-code">${code}</code>`
+      })
+      
+      return html
+    } else {
+      // 普通文本，只处理换行
+      return text.replace(/\n/g, '<br>')
+    }
+  } catch (error) {
+    console.error('Markdown parsing error:', error)
+    // 出错时回退到简单的换行处理
+    return text.replace(/\n/g, '<br>')
+  }
 }
 
 // 格式化时间
@@ -335,6 +397,33 @@ const handleInput = () => {
   adjustTextareaHeight()
 }
 
+// 开始新对话
+const startNewSession = () => {
+  // 清空当前消息
+  messages.value = []
+  
+  // 重置聊天服务的会话ID
+  chatService.resetSession()
+  
+  // 更新显示的会话ID
+  sessionId.value = chatService.getSessionId()
+  
+  // 添加欢迎消息
+  addBotMessage('新对话已开始！我是您的个人生活助理，有什么可以帮您的吗？')
+}
+
+// 初始化会话ID
+const initializeSession = () => {
+  sessionId.value = chatService.getSessionId()
+}
+
+// 在组件挂载时初始化
+onMounted(() => {
+  initializeSession()
+  // 添加欢迎消息
+  addBotMessage('您好！我是您的个人生活助理，可以帮您查询天气、进行计算、提供记账建议等。有什么需要帮助的吗？')
+})
+
     return {
       messages,
       currentMessage,
@@ -345,8 +434,10 @@ const handleInput = () => {
       messagesContainer,
       messageInput,
       quickActions,
+      sessionId,
       sendMessage,
       useQuickAction,
+      startNewSession,
       formatMessage,
       formatTime,
       formatResponseTime,
@@ -373,17 +464,101 @@ const handleInput = () => {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   padding: 20px;
-  text-align: center;
 }
 
-.chat-header h1 {
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 100%;
+}
+
+.title-section {
+  flex: 1;
+}
+
+.title-section h1 {
   margin-bottom: 8px;
   font-size: 24px;
+  text-align: left;
 }
 
-.chat-header p {
+.title-section p {
   opacity: 0.9;
   font-size: 14px;
+  text-align: left;
+  margin: 0;
+}
+
+.session-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.session-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.session-label {
+  font-weight: 500;
+}
+
+.session-id {
+  font-family: monospace;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.new-session-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.new-session-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.new-session-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 响应式设计 */
+@media (max-width: 640px) {
+  .header-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .title-section h1,
+  .title-section p {
+    text-align: center;
+  }
+  
+  .session-section {
+    align-items: center;
+    flex-direction: row;
+    justify-content: space-between;
+  }
 }
 
 .chat-messages {
@@ -518,9 +693,121 @@ const handleInput = () => {
 }
 
 .message-text {
-  line-height: 1.4;
+  line-height: 1.6;
   word-wrap: break-word;
   margin-bottom: 4px;
+}
+
+/* Markdown 样式 */
+.message-text h1,
+.message-text h2,
+.message-text h3,
+.message-text h4,
+.message-text h5,
+.message-text h6 {
+  margin: 12px 0 8px 0;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.message-text h1 { font-size: 1.4em; }
+.message-text h2 { font-size: 1.3em; }
+.message-text h3 { font-size: 1.2em; }
+.message-text h4 { font-size: 1.1em; }
+
+.message-text p {
+  margin: 8px 0;
+}
+
+.message-text ul,
+.message-text ol {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.message-text li {
+  margin: 4px 0;
+}
+
+.message-text blockquote {
+  margin: 12px 0;
+  padding: 8px 12px;
+  border-left: 4px solid #667eea;
+  background: rgba(102, 126, 234, 0.1);
+  font-style: italic;
+}
+
+.message-text strong {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.message-text em {
+  font-style: italic;
+  color: #6b7280;
+}
+
+.message-text code.inline-code {
+  background: #f3f4f6;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  color: #dc2626;
+}
+
+.message-text pre {
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.message-text pre code {
+  background: none;
+  padding: 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+/* 表格样式 */
+.message-text table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  border: 1px solid #e5e7eb;
+}
+
+.message-text th,
+.message-text td {
+  border: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.message-text th {
+  background: #f9fafb;
+  font-weight: 600;
+}
+
+/* 链接样式 */
+.message-text a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.message-text a:hover {
+  color: #1d4ed8;
+}
+
+/* 分隔线样式 */
+.message-text hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 16px 0;
 }
 
 .message-meta {

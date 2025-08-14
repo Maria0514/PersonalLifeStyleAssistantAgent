@@ -9,7 +9,56 @@
 ```
 Vue 3 前端 (http://localhost:5173)
     ↕ HTTP/JSON
-FastAPI 后端 (http://localhost:8000)
+FastAPI 后端 (http://localhost### 🔧 前端集成说明
+
+### 会话管理
+
+前端现在支持会话管理功能：
+
+#### **会话ID生成规则**
+```typescript
+// 基于日期和时间戳的会话ID格式
+const session### 📊 性能指标
+
+### 会话管理性能
+
+- **会话创建时间**: <### 📝 更新日志
+
+### v1.1.0 (2025-08-14)
+- ✅ 添加会话管理功能
+- ✅ 前端支持会话ID自动生成和管理
+- ✅ 支持新建会话功能
+- ✅ 优化对话上下文保持
+- 🔧 修复会话断续问题
+
+### v1.0.0 (2025-08-13)ms
+- **会话切换响应**: < 50ms
+- **内存中同时维护的会话数**: 建议 < 1000个
+- **单个会话最大消息数**: 建议 < 500条
+
+### API 性能指标= `session_${YYYY-MM-DD}_${timestamp_suffix}`
+// 示例：session_2025-08-14_456789
+```
+
+#### **会话生命周期**
+- **页面加载时**：自动生成新的会话ID
+- **对话期间**：所有消息使用相同的会话ID
+- **新建会话**：用户主动点击"新对话"按钮生成新会话ID
+- **页面刷新**：生成新的会话ID，之前的对话上下文会丢失
+
+#### **前端会话管理接口**
+```typescript
+// 获取当前会话ID
+const currentSessionId = chatService.getSessionId()
+
+// 重置会话（生成新会话ID）
+chatService.resetSession()
+
+// 发送消息（自动包含会话ID）
+const response = await chatService.sendMessage(message)
+```
+
+### 环境配置00)
     ↕ 
 LangChain Agent + Tools
 ```
@@ -37,7 +86,8 @@ LangChain Agent + Tools
 ```json
 {
   "message": "string",      // 用户输入的消息内容
-  "timestamp": "string"     // ISO 8601格式的时间戳 (可选)
+  "timestamp": "string",    // ISO 8601格式的时间戳 (可选)
+  "session_id": "string"    // 会话ID，用于维持对话上下文 (可选)
 }
 ```
 
@@ -45,7 +95,8 @@ LangChain Agent + Tools
 ```json
 {
   "message": "今天的天气怎么样？",
-  "timestamp": "2025-08-13T12:30:00.000Z"
+  "timestamp": "2025-08-14T12:30:00.000Z",
+  "session_id": "session_2025-08-14_456789"
 }
 ```
 
@@ -67,10 +118,10 @@ LangChain Agent + Tools
 {
   "message": "今天北京天气晴朗，气温23°C，适合外出活动。建议您穿着舒适的春秋装。",
   "success": true,
-  "tool_used": "search",
+  "tool_used": ["search_online"],
   "metadata": {
     "tokens_used": 45,
-    "response_time": 0.85,
+    "response_time": 0.85
   }
 }
 ```
