@@ -46,7 +46,7 @@ class CalculatorTool(BaseTool):
         # 使用ast.literal_eval
         try:
             result = eval(expression, {"__builtins__": {}})
-            return result;
+            return result
         except:
             raise ValueError("无效的数学表达式")
 
