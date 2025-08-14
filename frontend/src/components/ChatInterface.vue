@@ -48,6 +48,16 @@
           <div class="message-meta">
             <span class="message-time">{{ formatTime(message.timestamp) }}</span>
             <span v-if="message.type === 'user'" class="message-status">已发送</span>
+            <!-- AI回复的metadata信息 -->
+            <div v-if="message.type === 'bot' && message.metadata" class="ai-metadata">
+              <span class="metadata-item">
+                {{ message.metadata.tokens_used }} tokens
+              </span>
+              <span class="metadata-separator">•</span>
+              <span class="metadata-item">
+                {{ formatResponseTime(message.metadata.response_time) }}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -115,13 +125,14 @@
 
 <script lang="ts">
 import { defineComponent, ref, nextTick, onMounted } from 'vue'
-import { chatService } from '../services/chatService'
+import { chatService, type ChatMetadata } from '../services/chatService'
 
 interface Message {
   id: number
   text: string
   type: 'user' | 'bot'
   timestamp: Date
+  metadata?: ChatMetadata
 }
 
 interface QuickAction {
@@ -193,7 +204,7 @@ const sendMessage = async () => {
     // 模拟打字效果
     setTimeout(() => {
       isTyping.value = false
-      addBotMessage(response.message)
+      addBotMessage(response.message, response.metadata)
     }, 800)
 
   } catch (error) {
@@ -247,12 +258,13 @@ const addUserMessage = (text: string) => {
 }
 
 // 添加机器人消息
-const addBotMessage = (text: string) => {
+const addBotMessage = (text: string, metadata?: ChatMetadata) => {
   messages.value.push({
     id: ++messageIdCounter,
     text,
     type: 'bot',
-    timestamp: new Date()
+    timestamp: new Date(),
+    metadata
   })
   scrollToBottom()
 }
@@ -277,6 +289,15 @@ const formatTime = (timestamp: Date) => {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+// 格式化响应时间
+const formatResponseTime = (responseTime: number) => {
+  if (responseTime < 1) {
+    return `${Math.round(responseTime * 1000)}ms`
+  } else {
+    return `${responseTime.toFixed(2)}s`
+  }
 }
 
 // 获取工具名称
@@ -328,6 +349,7 @@ const handleInput = () => {
       useQuickAction,
       formatMessage,
       formatTime,
+      formatResponseTime,
       getToolName,
       getToolDescription,
       handleInput
@@ -503,8 +525,8 @@ const handleInput = () => {
 
 .message-meta {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   font-size: 12px;
   opacity: 0.7;
 }
@@ -515,6 +537,25 @@ const handleInput = () => {
 
 .message-status {
   font-style: italic;
+}
+
+/* AI回复的metadata样式 */
+.ai-metadata {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  color: #999;
+  margin-top: 2px;
+  opacity: 0.8;
+}
+
+.metadata-item {
+  font-weight: 500;
+}
+
+.metadata-separator {
+  margin: 0 6px;
+  color: #ccc;
 }
 
 .message {

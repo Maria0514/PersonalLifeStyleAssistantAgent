@@ -1,10 +1,18 @@
 // API配置
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
+// 元数据接口定义
+export interface ChatMetadata {
+  tokens_used: number
+  response_time: number
+  confidence?: number
+}
+
 // 响应接口定义
 export interface ChatResponse {
   message: string
   success: boolean
+  metadata?: ChatMetadata
   error?: string
 }
 
@@ -42,7 +50,12 @@ class ChatService {
       
       return {
         message: data.response || data.message || '抱歉，我没有理解您的问题。',
-        success: true
+        success: true,
+        metadata: data.metadata ? {
+          tokens_used: data.metadata.tokens_used || 0,
+          response_time: data.metadata.response_time || 0,
+          confidence: data.metadata.confidence
+        } : undefined
       }
     } catch (error) {
       console.error('发送消息失败:', error)
