@@ -31,6 +31,7 @@ class AddReminderTool(BaseTool):
     name: str = "add_reminder_tool"
     description: str = """
     增加新提醒的工具，用于新增用户提醒和日程
+    使用前先调用get_current_time工具获取当前时间
     使用时请确保提供必要的提醒信息，如标题、截止时间等。
     id为自增序列，无需传入
     """
@@ -38,9 +39,10 @@ class AddReminderTool(BaseTool):
 
     def __init__(self):
         super().__init__()
-        self._db = SQLDatabase.from_uri("sqlite:///./reminders.db")
+        self._db = SQLDatabase.from_uri("sqlite:///./data.db")
 
     def _run(self, **kwargs):
+        logger.info(f"当前时间：{datetime.now()}")
         input = self.args_schema(**kwargs)
         query = f"""
 INSERT INTO reminders (title, description, due_date, priority, status, created_at, updated_at) VALUES(
@@ -64,7 +66,7 @@ class QueryReminderTool(BaseTool):
     args_schema: Type[QueryReminderInput] = QueryReminderInput
     def __init__(self):
         super().__init__()
-        self._db = SQLDatabase.from_uri("sqlite:///./reminders.db")
+        self._db = SQLDatabase.from_uri("sqlite:///./data.db")
 
     def _run(self, **kwargs):
         input = self.args_schema(**kwargs)
@@ -98,7 +100,7 @@ class UpdateReminderTool(BaseTool):
     args_schema: Type[UpdateReminderInput] = UpdateReminderInput
     def __init__(self):
         super().__init__()
-        self._db = SQLDatabase.from_uri("sqlite:///./reminders.db")
+        self._db = SQLDatabase.from_uri("sqlite:///./data.db")
     def _run(self, **kwargs):
         input = self.args_schema(**kwargs)
         query = f"""

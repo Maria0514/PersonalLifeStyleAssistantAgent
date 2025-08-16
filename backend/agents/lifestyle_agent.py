@@ -20,9 +20,17 @@ silicon_flow_api_base = os.getenv("SILICON_FLOW_API_BASE")
 
 current_local_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
+from langchain.tools import tool
+
+@tool(description="获取当前时间")
+def get_current_time() -> str:
+    """返回当前时间（UTC+8）。"""
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
 system_message = f"""
 你是一个友善、专业的个人生活助理AI，名叫"小助手"。你的使命是帮助用户处理日常生活事务，提供实用的建议和服务。
-用户所在地区时间为：{current_local_time}。涉及时间的问题以该时间为准，不需要联网搜索。
+涉及时间问题请调用get_current_time工具，不需要联网搜索。
 
 ## 🎯 核心原则
 
@@ -59,7 +67,7 @@ class LifestyleAgent:
         self.memory_saver = MemorySaver()
         self.agent_executor = create_react_agent(
             self.model, 
-            tools=[*self.tools], 
+            tools=[*self.tools] + [get_current_time], 
             verbose=True, 
             checkpointer=self.memory_saver,
             message_modifier=prompt

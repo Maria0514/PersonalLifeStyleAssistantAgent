@@ -1,6 +1,19 @@
 // API配置
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
+// 提醒接口定义
+export interface Reminder {
+  id: number
+  title: string
+  description?: string
+  due_date: string
+  priority: 'high' | 'medium' | 'low'
+  status: 'pending' | 'complete'
+  created_at: string
+  updated_at: string
+  completed_at?: string
+}
+
 // 元数据接口定义
 export interface ChatMetadata {
   tokens_used: number
@@ -51,6 +64,94 @@ class ChatService {
    */
   resetSession(): void {
     this.sessionId = this.generateSessionId()
+  }
+
+  /**
+   * 获取即将到期的提醒
+   * @param minutesAhead 提前多少分钟检查
+   * @returns Promise<Reminder[]>
+   */
+  async getUpcomingReminders(minutesAhead: number = 60): Promise<Reminder[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/reminders/upcoming?minutes_ahead=${minutesAhead}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      return data.upcoming || []
+    } catch (error) {
+      console.error('获取即将到期提醒失败:', error)
+      
+      // 在开发环境中返回模拟数据
+      if (import.meta.env.DEV) {
+        return this.getMockReminders(minutesAhead)
+      }
+      
+      return []
+    }
+  }
+
+  /**
+   * 标记提醒为完成
+   * @param reminderId 提醒ID
+   * @returns Promise<boolean>
+   */
+  async completeReminder(reminderId: number): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.baseUrl}/reminders/${reminderId}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+      return response.ok
+    } catch (error) {
+      console.error('完成提醒失败:', error)
+      
+      // 在开发环境中模拟成功
+      if (import.meta.env.DEV) {
+        console.log(`模拟完成提醒 ID: ${reminderId}`)
+        return true
+      }
+      
+      return false
+    }
+  }
+
+  /**
+   * 延迟提醒
+   * @param reminderId 提醒ID
+   * @param minutes 延迟分钟数
+   * @returns Promise<boolean>
+   */
+  async snoozeReminder(reminderId: number, minutes: number = 10): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.baseUrl}/reminders/${reminderId}/snooze`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ minutes })
+      })
+      return response.ok
+    } catch (error) {
+      console.error('延迟提醒失败:', error)
+      
+      // 在开发环境中模拟成功
+      if (import.meta.env.DEV) {
+        console.log(`模拟延迟提醒 ID: ${reminderId}, 延迟 ${minutes} 分钟`)
+        return true
+      }
+      
+      return false
+    }
   }
 
   /**
@@ -170,6 +271,63 @@ class ChatService {
       message: randomResponse,
       success: true
     }
+  }
+
+  /**
+   * 开发环境模拟提醒数据
+   * @param minutesAhead 提前多少分钟检查
+   * @returns 模拟的提醒数据
+   */
+  private getMockReminders(minutesAhead: number): Reminder[] {
+    const now = new Date()
+    const mockReminders: Reminder[] = []
+
+    // 创建一些测试提醒
+    const testReminders = [
+      {
+        title: '喝水提醒',
+        description: '记得多喝水，保持身体健康',
+        minutesFromNow: 5,
+        priority: 'medium' as const
+      },
+      {
+        title: '会议提醒',
+        description: '下午3点的项目讨论会议',
+        minutesFromNow: 15,
+        priority: 'high' as const
+      },
+      {
+        title: '运动时间',
+        description: '今天的健身计划：30分钟跑步',
+        minutesFromNow: 30,
+        priority: 'medium' as const
+      },
+      {
+        title: '买菜提醒',
+        description: '下班路上去超市买菜',
+        minutesFromNow: 45,
+        priority: 'low' as const
+      }
+    ]
+
+    testReminders.forEach((reminder, index) => {
+      if (reminder.minutesFromNow <= minutesAhead) {
+        const dueDate = new Date(now.getTime() + reminder.minutesFromNow * 60 * 1000)
+        
+        mockReminders.push({
+          id: index + 1,
+          title: reminder.title,
+          description: reminder.description,
+          due_date: dueDate.toISOString(),
+          priority: reminder.priority,
+          status: 'pending',
+          created_at: now.toISOString(),
+          updated_at: now.toISOString()
+        })
+      }
+    })
+
+    return mockReminders
   }
 
   /**

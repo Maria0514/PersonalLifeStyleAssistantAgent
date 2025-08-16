@@ -9,15 +9,27 @@
 ```
 Vue 3 前端 (http://localhost:5173)
     ↕ HTTP/JSON
-FastAPI 后端 (http://localhost### 🔧 前端集成说明
+FastAPI 后端 (http://localhost:8000)
+    ↕ 
+LangChain Agent + Tools
+```
 
-### 会话管理
+### 🌟 核心功能
 
-前端现在支持会话管理功能：
+- ✅ **智能对话**: 基于LangChain的AI助理对话
+- ✅ **工具集成**: 计算器、搜索、记忆、提醒等多种工具
+- ✅ **会话管理**: 支持多会话和上下文保持
+- ⭐ **提醒系统**: 完整的任务提醒和通知功能
+- 🔧 **开发友好**: 完善的模拟数据和测试支持
 
-#### **会话ID生成规则**
-```typescript
-// 基于日期和时间戳的会话ID格式
+### 📊 当前状态
+
+| 功能模块 | 状态 | 版本 | 说明 |
+|---------|------|------|------|
+| 基础对话 | ✅ 完成 | v1.0.0 | 支持多轮对话 |
+| 会话管理 | ✅ 完成 | v1.1.0 | 会话ID和上下文 |
+| 提醒功能 | ⭐ 新增 | v1.2.0 | 完整提醒系统 |
+| 工具系统 | ✅ 完成 | v1.0.0+ | 4种核心工具 |
 const session### 📊 性能指标
 
 ### 会话管理性能
@@ -198,7 +210,180 @@ LangChain Agent + Tools
 
 ---
 
-### 3. 获取对话历史接口 (规划中)
+### 3. 获取即将到期提醒接口 ⭐ 新增
+
+获取用户即将到期的提醒列表，支持时间范围筛选。
+
+**接口地址**: `GET /reminders/upcoming`
+
+**请求参数**:
+- `minutes_ahead`: 提前多少分钟检查 (可选，默认60分钟)
+
+**请求示例**:
+```http
+GET /reminders/upcoming?minutes_ahead=60
+```
+
+**响应格式**:
+```json
+{
+  "upcoming": [
+    {
+      "id": 1,
+      "title": "string",
+      "description": "string",
+      "due_date": "2025-08-15T14:30:00.000Z",
+      "priority": "high|medium|low",
+      "status": "pending|complete",
+      "created_at": "2025-08-15T12:00:00.000Z",
+      "updated_at": "2025-08-15T12:00:00.000Z",
+      "completed_at": "2025-08-15T13:00:00.000Z"
+    }
+  ],
+  "count": 3,
+  "total_upcoming": 5
+}
+```
+
+**成功响应示例**:
+```json
+{
+  "upcoming": [
+    {
+      "id": 1,
+      "title": "喝水提醒",
+      "description": "记得多喝水，保持身体健康",
+      "due_date": "2025-08-15T14:35:00.000Z",
+      "priority": "medium",
+      "status": "pending",
+      "created_at": "2025-08-15T12:00:00.000Z",
+      "updated_at": "2025-08-15T12:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "title": "会议提醒",
+      "description": "下午3点的项目讨论会议",
+      "due_date": "2025-08-15T15:00:00.000Z",
+      "priority": "high",
+      "status": "pending",
+      "created_at": "2025-08-15T12:00:00.000Z",
+      "updated_at": "2025-08-15T12:00:00.000Z"
+    }
+  ],
+  "count": 2,
+  "total_upcoming": 2
+}
+```
+
+**状态码**:
+- `200`: 成功
+- `400`: 请求参数错误
+- `500`: 服务器内部错误
+
+---
+
+### 4. 完成提醒接口 ⭐ 新增
+
+标记指定提醒为已完成状态。
+
+**接口地址**: `POST /reminders/{reminder_id}/complete`
+
+**路径参数**:
+- `reminder_id`: 提醒ID (必需)
+
+**请求示例**:
+```http
+POST /reminders/1/complete
+```
+
+**响应格式**:
+```json
+{
+  "success": true,
+  "message": "提醒已标记为完成",
+  "reminder": {
+    "id": 1,
+    "title": "string",
+    "status": "complete",
+    "completed_at": "2025-08-15T14:30:00.000Z"
+  }
+}
+```
+
+**错误响应示例**:
+```json
+{
+  "success": false,
+  "error": "提醒不存在或已完成",
+  "error_code": "REMINDER_NOT_FOUND"
+}
+```
+
+**状态码**:
+- `200`: 成功
+- `404`: 提醒不存在
+- `400`: 提醒已完成
+- `500`: 服务器内部错误
+
+---
+
+### 5. 延迟提醒接口 ⭐ 新增
+
+延迟指定提醒的到期时间。
+
+**接口地址**: `POST /reminders/{reminder_id}/snooze`
+
+**路径参数**:
+- `reminder_id`: 提醒ID (必需)
+
+**请求参数**:
+```json
+{
+  "minutes": 10        // 延迟分钟数 (默认10分钟)
+}
+```
+
+**请求示例**:
+```http
+POST /reminders/1/snooze
+
+{
+  "minutes": 15
+}
+```
+
+**响应格式**:
+```json
+{
+  "success": true,
+  "message": "提醒已延迟15分钟",
+  "reminder": {
+    "id": 1,
+    "title": "string",
+    "due_date": "2025-08-15T14:45:00.000Z",
+    "updated_at": "2025-08-15T14:30:00.000Z"
+  }
+}
+```
+
+**错误响应示例**:
+```json
+{
+  "success": false,
+  "error": "提醒不存在或已完成",
+  "error_code": "REMINDER_NOT_AVAILABLE"
+}
+```
+
+**状态码**:
+- `200`: 成功
+- `404`: 提醒不存在
+- `400`: 请求参数错误或提醒已完成
+- `500`: 服务器内部错误
+
+---
+
+### 6. 获取对话历史接口 (规划中)
 
 获取用户的历史对话记录。
 
@@ -228,7 +413,7 @@ LangChain Agent + Tools
 
 ---
 
-### 4. 重置对话接口 (规划中)
+### 7. 重置对话接口 (规划中)
 
 清除当前会话的记忆和上下文。
 
@@ -257,12 +442,36 @@ AI助理支持以下工具，会根据用户输入自动选择使用：
 
 ### 工具列表
 
-| 工具ID | 工具名称 | 功能描述 | 触发关键词 |
-|--------|----------|----------|------------|
-| `search` | 网络搜索 | 搜索实时信息、天气查询 | 天气、搜索、查询 |
-| `calculator` | 计算器 | 数学计算和表达式求值 | 计算、数字、运算符 |
-| `memory` | 记忆系统 | 记录和回忆对话上下文 | 记住、之前、回忆 |
-| `reminder` | 提醒工具 | 设置时间提醒和任务 | 提醒、闹钟、定时 |
+| 工具ID | 工具名称 | 功能描述 | 触发关键词 | 状态 |
+|--------|----------|----------|------------|------|
+| `search` | 网络搜索 | 搜索实时信息、天气查询 | 天气、搜索、查询 | ✅ 已实现 |
+| `calculator` | 计算器 | 数学计算和表达式求值 | 计算、数字、运算符 | ✅ 已实现 |
+| `memory` | 记忆系统 | 记录和回忆对话上下文 | 记住、之前、回忆 | ⚠️ 开发中 |
+| `reminder` | 提醒工具 | 设置时间提醒和任务管理 | 提醒、闹钟、定时、任务 | ⭐ 新增 |
+
+### 提醒工具详细说明 ⭐
+
+提醒工具支持以下功能：
+
+#### **添加提醒**
+- 支持自然语言解析时间
+- 支持优先级设置（高/中/低）
+- 支持描述信息添加
+
+#### **查询提醒**
+- 按时间范围查询
+- 按优先级筛选
+- 按状态筛选
+
+#### **提醒管理**
+- 标记完成
+- 延迟提醒
+- 修改提醒内容
+
+#### **智能通知**
+- 多时间点提醒（1小时前、30分钟前、10分钟前、准时）
+- 逾期提醒
+- 声音提醒
 
 ### 工具使用流程
 
@@ -272,9 +481,90 @@ AI助理支持以下工具，会根据用户输入自动选择使用：
 4. 执行工具功能
 5. 基于工具结果生成回复
 
+### 提醒工具使用示例
+
+**用户输入**: "提醒我明天下午3点开会"
+**工具调用**: `reminder.add_reminder`
+**参数**: 
+```json
+{
+  "title": "开会",
+  "due_date": "2025-08-16T15:00:00.000Z",
+  "priority": "medium"
+}
+```
+**AI回复**: "好的，我已经为您设置了明天下午3点的开会提醒。"
+
 ---
 
 ## 🔧 前端集成说明
+
+### 提醒功能集成 ⭐ 新增
+
+前端已集成完整的提醒功能系统：
+
+#### **提醒服务架构**
+```typescript
+import { ReminderService } from '@/services/reminderService'
+import { chatService } from '@/services/chatService'
+
+// 初始化提醒服务
+const reminderService = new ReminderService(chatService)
+
+// 启动自动监控
+reminderService.start()
+```
+
+#### **提醒功能特性**
+- ✅ **自动监控**: 每60秒检查即将到期的提醒
+- ✅ **智能通知**: 1小时前、30分钟前、10分钟前、准时、逾期多时间点提醒
+- ✅ **ElementPlus集成**: 美观的通知UI和交互对话框
+- ✅ **声音提醒**: Web Audio API生成的提醒音效
+- ✅ **防重复通知**: 避免同一提醒重复弹出
+- ✅ **用户交互**: 点击通知可完成或延迟提醒
+
+#### **前端提醒接口**
+```typescript
+// 获取即将到期的提醒
+const upcomingReminders = await chatService.getUpcomingReminders(60)
+
+// 完成提醒
+const success = await chatService.completeReminder(reminderId)
+
+// 延迟提醒
+const success = await chatService.snoozeReminder(reminderId, 10)
+
+// 手动检查提醒（点击头部提醒徽章）
+reminderService.checkReminders()
+```
+
+#### **通知样式定制**
+```typescript
+// 提醒通知配置
+ElNotification({
+  title: '⏰ 即将到期提醒',
+  message: '📅 会议提醒\n📝 下午3点的项目讨论会议',
+  type: 'warning',
+  duration: 0,          // 不自动关闭
+  position: 'top-right',
+  showClose: true,
+  onClick: () => handleReminderClick(reminder)
+})
+```
+
+#### **开发测试支持**
+```typescript
+// 模拟提醒数据（开发环境）
+const mockReminders = [
+  {
+    title: "喝水提醒",
+    description: "记得多喝水，保持身体健康",
+    minutesFromNow: 5,
+    priority: "medium"
+  },
+  // ... 更多测试数据
+]
+```
 
 ### 环境配置
 
@@ -393,16 +683,38 @@ async def health_check():
 
 ## 📝 更新日志
 
+### v1.2.0 (2025-08-15) ⭐ 当前版本
+- ✅ **提醒功能完整实现**
+  - 新增获取即将到期提醒接口 `GET /reminders/upcoming`
+  - 新增完成提醒接口 `POST /reminders/{id}/complete`
+  - 新增延迟提醒接口 `POST /reminders/{id}/snooze`
+- ✅ **前端提醒系统集成**
+  - 自动监控和智能通知系统
+  - ElementPlus UI组件集成
+  - 声音提醒和用户交互功能
+  - 开发环境模拟数据支持
+- ✅ **API文档完善**
+  - 详细的提醒接口说明
+  - 前端集成指南
+  - 完整的示例代码
+
+### v1.1.0 (2025-08-14)
+- ✅ 添加会话管理功能
+- ✅ 前端支持会话ID自动生成和管理
+- ✅ 支持新建会话功能
+- ✅ 优化对话上下文保持
+- 🔧 修复会话断续问题
+
 ### v1.0.0 (2025-08-13)
-- 定义基础API接口规范
-- 实现前端模拟响应机制
-- 设计工具系统架构
+- ✅ 定义基础API接口规范
+- ✅ 实现前端模拟响应机制
+- ✅ 设计工具系统架构
 
 ### 未来版本计划
-- v1.1.0: 用户认证系统
-- v1.2.0: 对话历史管理
-- v1.3.0: 高级工具集成
-- v2.0.0: 多用户支持
+- v1.3.0: 提醒管理页面（创建、编辑、删除）
+- v1.4.0: 重复提醒和提醒分类
+- v1.5.0: 用户认证系统
+- v2.0.0: 多用户支持和数据同步
 
 ---
 

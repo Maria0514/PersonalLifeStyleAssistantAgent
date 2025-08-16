@@ -1,6 +1,25 @@
 <script setup lang="ts">
 // 直接导入组件，Vue 3会自动处理
 import ChatInterface from './components/ChatInterface.vue'
+import { onMounted, onUnmounted } from 'vue'
+import { ReminderService } from './services/reminderService'
+import { chatService } from './services/chatService'
+
+// 提醒服务实例
+let reminderService: ReminderService
+
+onMounted(() => {
+  // 初始化提醒服务
+  reminderService = new ReminderService(chatService)
+  reminderService.start()
+})
+
+onUnmounted(() => {
+  // 清理提醒服务
+  if (reminderService) {
+    reminderService.stop()
+  }
+})
 </script>
 
 <template>

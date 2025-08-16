@@ -12,6 +12,14 @@
             <span class="session-label">会话ID:</span>
             <span class="session-id">{{ sessionId }}</span>
           </div>
+          <!-- 提醒徽章 -->
+          <div class="reminder-badge" @click="checkReminders" title="检查提醒">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <span class="badge-text">提醒</span>
+          </div>
           <button 
             @click="startNewSession" 
             class="new-session-btn"
@@ -144,8 +152,10 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, nextTick, onMounted } from 'vue'
+import { defineComponent, ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { chatService, type ChatMetadata } from '../services/chatService'
+import { ReminderService } from '../services/reminderService'
+import { ElNotification, ElMessageBox } from 'element-plus'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.css'
@@ -186,6 +196,9 @@ const currentToolId = ref<string>('')
 const messagesContainer = ref<HTMLElement>()
 const messageInput = ref<HTMLTextAreaElement>()
 const sessionId = ref<string>('')
+
+// 初始化提醒服务
+const reminderService = new ReminderService(chatService)
 
 const quickActions: QuickAction[] = [
   { label: '查询天气', text: '今天的天气怎么样？' },
@@ -417,11 +430,134 @@ const initializeSession = () => {
   sessionId.value = chatService.getSessionId()
 }
 
+// 手动检查提醒
+const checkReminders = async () => {
+  try {
+    const upcomingReminders = await chatService.getUpcomingReminders(60)
+    
+    if (upcomingReminders.length === 0) {
+      ElNotification.info({
+        title: '暂无提醒',
+        message: '未来1小时内没有待办提醒'
+      })
+    } else {
+      ElNotification.success({
+        title: `发现 ${upcomingReminders.length} 个提醒`,
+        message: `即将到期的提醒已在通知中显示`,
+        duration: 3000
+      })
+      
+      // 手动触发提醒处理
+      upcomingReminders.forEach(reminder => {
+        const now = new Date()
+        const dueDate = new Date(reminder.due_date)
+        const minutesLeft = Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60))
+        console.log(reminder)
+        console.log(`📅 ${reminder.title}${reminder.description ? '\n📝 ' + reminder.description : ''}`)
+        
+        // 创建安全的提醒对象
+        const safeReminder = {
+          id: reminder.id,
+          title: reminder.title || '未知提醒',
+          description: reminder.description || '无描述',
+          due_date: reminder.due_date,
+          priority: reminder.priority || 'medium',
+          status: reminder.status || 'pending'
+        }
+        
+        ElNotification({
+          title: minutesLeft > 0 ? `${minutesLeft}分钟后到期` : '已到期',
+          message: `📅 ${safeReminder.title}${safeReminder.description !== '无描述' ? '\n📝 ' + safeReminder.description : ''}`,
+          type: minutesLeft > 10 ? 'info' : minutesLeft >= 0 ? 'warning' : 'error',
+          duration: 0,
+          showClose: true,
+          position: 'bottom-right',
+          offset: 20,
+          onClick: async () => {
+            console.log('手动检查：点击了提醒通知:', safeReminder)
+            await handleManualReminderClick(safeReminder)
+          }
+        })
+      })
+    }
+  } catch (error) {
+    ElNotification.error({
+      title: '检查提醒失败',
+      message: '无法获取提醒信息，请稍后重试'
+    })
+    console.error('检查提醒失败:', error)
+  }
+}
+
+// 处理手动检查提醒的点击事件
+const handleManualReminderClick = async (reminder: any) => {
+  try {
+    console.log('手动检查：处理提醒点击:', reminder)
+    
+    const result = await ElMessageBox.confirm(
+      `提醒：${reminder.title}\n${reminder.description || ''}\n\n您想要执行什么操作？`,
+      '提醒处理',
+      {
+        confirmButtonText: '标记完成',
+        cancelButtonText: '延迟10分钟',
+        distinguishCancelAndClose: true,
+        type: 'warning',
+        center: true,
+        closeOnClickModal: false,
+        closeOnPressEscape: true,
+        showClose: true
+      }
+    )
+
+    // 用户点击"标记完成"
+    console.log('手动检查：用户选择标记完成')
+    const success = await chatService.completeReminder(reminder.id)
+    if (success) {
+      ElNotification.success({
+        title: '操作成功',
+        message: '提醒已标记为完成'
+      })
+    } else {
+      ElNotification.error({
+        title: '操作失败',
+        message: '无法标记提醒为完成'
+      })
+    }
+  } catch (action) {
+    console.log('手动检查：用户操作:', action)
+    if (action === 'cancel') {
+      // 用户点击"延迟10分钟"
+      console.log('手动检查：用户选择延迟10分钟')
+      const success = await chatService.snoozeReminder(reminder.id, 10)
+      if (success) {
+        ElNotification.success({
+          title: '操作成功',
+          message: '提醒已延迟10分钟'
+        })
+      } else {
+        ElNotification.error({
+          title: '操作失败',
+          message: '无法延迟提醒'
+        })
+      }
+    } else if (action === 'close') {
+      console.log('手动检查：用户关闭了提醒对话框')
+    }
+  }
+}
+
 // 在组件挂载时初始化
 onMounted(() => {
   initializeSession()
+  // 启动提醒服务
+  reminderService.start()
   // 添加欢迎消息
   addBotMessage('您好！我是您的个人生活助理，可以帮您查询天气、进行计算、提供记账建议等。有什么需要帮助的吗？')
+})
+
+// 在组件卸载时清理
+onUnmounted(() => {
+  reminderService.stop()
 })
 
     return {
@@ -438,6 +574,8 @@ onMounted(() => {
       sendMessage,
       useQuickAction,
       startNewSession,
+      checkReminders,
+      handleManualReminderClick,
       formatMessage,
       formatTime,
       formatResponseTime,
@@ -539,6 +677,37 @@ onMounted(() => {
 .new-session-btn svg {
   width: 14px;
   height: 14px;
+}
+
+/* 提醒徽章样式 */
+.reminder-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-right: 8px;
+}
+
+.reminder-badge:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: scale(1.05);
+}
+
+.reminder-badge svg {
+  width: 16px;
+  height: 16px;
+}
+
+.badge-text {
+  font-weight: 500;
 }
 
 /* 响应式设计 */
@@ -1060,5 +1229,35 @@ onMounted(() => {
 
 .chat-messages::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
+}
+
+/* 提醒通知自定义样式 */
+.reminder-notification {
+  white-space: pre-line;
+  min-width: 350px;
+  border-left: 4px solid #667eea;
+}
+
+.reminder-notification .el-notification__title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.reminder-notification .el-notification__content {
+  line-height: 1.5;
+}
+
+/* ElementPlus 通知自定义 */
+.el-notification {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.el-notification.el-notification--warning {
+  border-left-color: #f56c6c;
+}
+
+.el-notification.el-notification--error {
+  border-left-color: #f56c6c;
 }
 </style>

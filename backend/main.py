@@ -6,7 +6,7 @@ from typing import Literal
 from datetime import datetime
 from agents.lifestyle_agent import LifestyleAgent
 import time, os
-
+from router import reminder
 
 origins = [
     "http://localhost:5173",
@@ -21,7 +21,7 @@ app.add_middleware(
     allow_headers=['*'],
     allow_credentials=True  # 添加这一行
 )
-
+app.include_router(reminder.router)
 class UserMessage(BaseModel):
     message: str
     timestamp: str

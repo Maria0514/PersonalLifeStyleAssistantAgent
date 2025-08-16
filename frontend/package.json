@@ -18,6 +18,8 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "element-plus": "^2.10.7",
     "highlight.js": "^11.11.1",
     "marked": "^16.1.2",
     "pinia": "^3.0.3",
