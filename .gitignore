@@ -34,3 +34,5 @@ playwright-report/
 *.env
 *test.ipynb
 frontend/public/test-reminders.html
+当前计划.doc
+TODO.md

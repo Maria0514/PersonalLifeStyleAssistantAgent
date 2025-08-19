@@ -156,7 +156,147 @@ LangChain Agent + Tools
 
 ---
 
-### 2. 健康检查接口
+---
+
+### 2. 对话历史管理接口
+
+用于管理和获取对话历史记录的接口组。
+
+#### 2.1 获取对话会话列表
+
+**接口地址**: `GET /conversations`
+
+**请求参数**: 无
+
+**响应格式**:
+```json
+{
+  "conversations": [
+    {
+      "id": 1,
+      "session_id": "string",
+      "title": "string",
+      "created_at": "string",
+      "updated_at": "string", 
+      "message_count": 10
+    }
+  ],
+  "total": 5
+}
+```
+
+**响应示例**:
+```json
+{
+  "conversations": [
+    {
+      "id": 1,
+      "session_id": "session_2025-08-16_123456",
+      "title": "天气查询和提醒设置",
+      "created_at": "2025-08-16T10:30:00.000Z",
+      "updated_at": "2025-08-16T11:45:00.000Z",
+      "message_count": 8
+    }
+  ],
+  "total": 1
+}
+```
+
+#### 2.2 获取消息历史
+
+**接口地址**: `GET /conversations/{session_id}/messages`
+
+**请求参数**:
+- `session_id` (path): 会话ID
+- `limit` (query): 返回消息数量限制，默认50
+- `offset` (query): 偏移量，用于分页，默认0
+
+**响应格式**:
+```json
+{
+  "messages": [
+    {
+      "id": 1,
+      "session_id": "string",
+      "role": "user|assistant",
+      "content": "string",
+      "timestamp": "string",
+      "tool_used": "string"
+    }
+  ],
+  "total": 100,
+  "has_more": true
+}
+```
+
+**响应示例**:
+```json
+{
+  "messages": [
+    {
+      "id": 1,
+      "session_id": "session_2025-08-16_123456",
+      "role": "user",
+      "content": "今天天气怎么样？",
+      "timestamp": "2025-08-16T10:30:00.000Z"
+    },
+    {
+      "id": 2,
+      "session_id": "session_2025-08-16_123456", 
+      "role": "assistant",
+      "content": "今天北京天气晴朗，气温25°C，适合外出活动。",
+      "timestamp": "2025-08-16T10:30:15.000Z",
+      "tool_used": "weather"
+    }
+  ],
+  "total": 8,
+  "has_more": false
+}
+```
+
+#### 2.3 删除对话会话
+
+**接口地址**: `DELETE /conversations/{session_id}`
+
+**请求参数**:
+- `session_id` (path): 会话ID
+
+**响应格式**:
+```json
+{
+  "success": true,
+  "message": "对话已删除"
+}
+```
+
+#### 2.4 搜索消息
+
+**接口地址**: `GET /conversations/{session_id}/search` 或 `GET /messages/search`
+
+**请求参数**:
+- `session_id` (path, 可选): 会话ID，如果提供则只在该会话中搜索
+- `q` (query): 搜索关键词
+
+**响应格式**:
+```json
+{
+  "messages": [
+    {
+      "id": 1,
+      "session_id": "string",
+      "role": "user|assistant", 
+      "content": "string",
+      "timestamp": "string",
+      "tool_used": "string"
+    }
+  ],
+  "total": 5
+}
+```
+
+---
+
+### 3. 健康检查接口
 
 检查服务器运行状态和各组件健康状况。
 
@@ -210,7 +350,7 @@ LangChain Agent + Tools
 
 ---
 
-### 3. 获取即将到期提醒接口 ⭐ 新增
+### 4. 获取即将到期提醒接口 ⭐ 新增
 
 获取用户即将到期的提醒列表，支持时间范围筛选。
 
@@ -282,7 +422,7 @@ GET /reminders/upcoming?minutes_ahead=60
 
 ---
 
-### 4. 完成提醒接口 ⭐ 新增
+### 5. 完成提醒接口 ⭐ 新增
 
 标记指定提醒为已完成状态。
 
@@ -327,7 +467,7 @@ POST /reminders/1/complete
 
 ---
 
-### 5. 延迟提醒接口 ⭐ 新增
+### 6. 延迟提醒接口 ⭐ 新增
 
 延迟指定提醒的到期时间。
 
@@ -590,7 +730,6 @@ VITE_API_BASE_URL=http://localhost:8000
 
 - **天气查询**: 返回模拟天气信息
 - **数学计算**: 执行简单的数学运算
-- **记账建议**: 提供预设的理财建议
 - **默认回复**: 通用的助理回复
 
 ---

@@ -6,11 +6,14 @@ from typing import Literal
 from datetime import datetime
 from agents.lifestyle_agent import LifestyleAgent
 import time, os
-from router import reminder
+from database import *
+from router import reminder, conversation, messages
 
 origins = [
     "http://localhost:5173",
 ]
+messageDB = MessageDB()
+conversationDB = ConversationDB()
 
 app = FastAPI()
 # 配置跨域资源共享
@@ -22,6 +25,8 @@ app.add_middleware(
     allow_credentials=True  # 添加这一行
 )
 app.include_router(reminder.router)
+app.include_router(conversation.router)
+app.include_router(messages.router)
 class UserMessage(BaseModel):
     message: str
     timestamp: str
@@ -48,6 +53,19 @@ async def receive_message(message: UserMessage):
             "thread_id": thread_id
         }
     }
+    if(conversationDB.has_conversation(thread_id) is False):
+        config_extract_first = {
+            "configurable": {
+                "thread_id": "extract_title_from_first_message"
+            }
+        }
+        title = await life_agent.process_conversation_title(message.message, config=config_extract_first)
+        logger.info(f"标题：{title['messages'][-1].content}")
+        conversationDB.create_conversation(thread_id, title['messages'][-1].content)
+
+    # 添加用户消息记录
+    messageDB.add_message(thread_id, 'user', message.message, message.timestamp, None)
+    conversationDB.update_conversation_count(thread_id)
     start_time = time.perf_counter()
 
     logger.info(f"session id: {thread_id}")
@@ -67,6 +85,9 @@ async def receive_message(message: UserMessage):
                 "response_time": response_time,
             }
         }
+        # 添加新消息记录
+        messageDB.add_message(thread_id, 'assistant', response['message'], datetime.now().isoformat(), tool_usage)
+        conversationDB.update_conversation_count(thread_id)
     except Exception as e:
         logger.error(f"Error processing response: {str(e)}")
         response = {

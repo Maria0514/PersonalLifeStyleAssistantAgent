@@ -1,11 +1,37 @@
 <template>
-  <div class="chat-container">
-    <!-- 头部标题 -->
+  <div class="chat-layout">
+    <!-- 侧边栏：对话历史 -->
+    <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
+      <div 
+        class="sidebar-toggle" 
+        @click="toggleSidebar"
+        :title="sidebarCollapsed ? '展开对话历史' : '收起对话历史'"
+      >
+        <svg v-if="sidebarCollapsed" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 18l-6-6 6-6"/>
+        </svg>
+      </div>
+      <ConversationHistory
+        v-if="!sidebarCollapsed"
+        :current-session-id="sessionId"
+        @session-changed="handleSessionChanged"
+        @new-conversation="handleNewConversation"
+        ref="conversationHistoryRef"
+      />
+    </aside>
+
+    <!-- 主聊天区域 -->
+    <main class="chat-main">
+      <div class="chat-container">
+        <!-- 头部标题 -->
     <header class="chat-header">
       <div class="header-content">
         <div class="title-section">
           <h1>个人生活助理 Agent</h1>
-          <p>我可以帮您查询天气、进行计算、提供记账建议等各种生活事务</p>
+          <p>我可以帮您查询天气、进行计算、设置提醒等各种生活事务</p>
         </div>
         <div class="session-section">
           <div class="session-info">
@@ -148,12 +174,15 @@
         </button>
       </div>
     </div>
+      </div>
+    </main>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, nextTick, onMounted, onUnmounted } from 'vue'
-import { chatService, type ChatMetadata } from '../services/chatService'
+import { defineComponent, defineAsyncComponent, ref, nextTick, onMounted, onUnmounted } from 'vue'
+import { DArrowLeft, DArrowRight } from '@element-plus/icons-vue'
+import { chatService, type ChatMetadata, type Message as ServiceMessage } from '../services/chatService'
 import { ReminderService } from '../services/reminderService'
 import { ElNotification, ElMessageBox } from 'element-plus'
 import { marked } from 'marked'
@@ -185,7 +214,14 @@ interface QuickAction {
 
 export default defineComponent({
   name: 'ChatInterface',
+  components: {
+    ConversationHistory: defineAsyncComponent(() => import('./ConversationHistory.vue'))
+  },
   setup() {
+
+// 侧边栏状态
+const sidebarCollapsed = ref(false)
+const conversationHistoryRef = ref()
 
 const messages = ref<Message[]>([])
 const currentMessage = ref('')
@@ -203,7 +239,6 @@ const reminderService = new ReminderService(chatService)
 const quickActions: QuickAction[] = [
   { label: '查询天气', text: '今天的天气怎么样？' },
   { label: '数学计算', text: '帮我计算 15 * 23 + 47' },
-  { label: '记账建议', text: '请给我一些记账建议' },
   { label: '设置提醒', text: '帮我设置一个提醒' }
 ]
 
@@ -552,7 +587,7 @@ onMounted(() => {
   // 启动提醒服务
   reminderService.start()
   // 添加欢迎消息
-  addBotMessage('您好！我是您的个人生活助理，可以帮您查询天气、进行计算、提供记账建议等。有什么需要帮助的吗？')
+  addBotMessage('您好！我是您的个人生活助理，可以帮您查询天气、进行计算、设置提醒等。有什么需要帮助的吗？')
 })
 
 // 在组件卸载时清理
@@ -560,7 +595,76 @@ onUnmounted(() => {
   reminderService.stop()
 })
 
+// ================== 对话历史相关方法 ==================
+
+// 切换侧边栏
+const toggleSidebar = () => {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+}
+
+// 处理会话切换
+const handleSessionChanged = async (newSessionId: string) => {
+  if (newSessionId === sessionId.value) return
+
+  try {
+    // 清空当前消息
+    messages.value = []
+    
+    // 更新会话ID
+    sessionId.value = newSessionId
+    chatService.switchSession(newSessionId)
+    
+    // 加载历史消息
+    const historyMessages = await chatService.getMessageHistory(newSessionId)
+    
+    // 转换并显示历史消息
+    historyMessages.forEach((msg) => {
+      messages.value.push({
+        id: messageIdCounter++,
+        text: msg.content,
+        type: msg.role === 'user' ? 'user' : 'bot',
+        timestamp: new Date(msg.timestamp),
+        metadata: msg.tool_used ? { tokens_used: 0, response_time: 0 } : undefined
+      })
+    })
+    
+    // 滚动到底部
+    nextTick(() => {
+      scrollToBottom()
+    })
+    
+  } catch (error) {
+    console.error('切换会话失败:', error)
+    ElNotification({
+      title: '错误',
+      message: '切换会话失败',
+      type: 'error',
+      position: 'bottom-right'
+    })
+  }
+}
+
+// 处理新对话
+const handleNewConversation = () => {
+  // 清空当前消息
+  messages.value = []
+  
+  // 生成新的会话ID
+  const newSessionId = chatService.getCurrentSessionId()
+  sessionId.value = newSessionId
+  chatService.switchSession()
+  
+  // 添加欢迎消息
+  addBotMessage('您好！我是您的个人生活助理，可以帮您查询天气、进行计算、设置提醒等。有什么需要帮助的吗？')
+  
+  // 刷新对话历史列表
+  if (conversationHistoryRef.value) {
+    conversationHistoryRef.value.loadConversations()
+  }
+}
+
     return {
+      // 原有状态和方法
       messages,
       currentMessage,
       isLoading,
@@ -581,13 +685,87 @@ onUnmounted(() => {
       formatResponseTime,
       getToolName,
       getToolDescription,
-      handleInput
+      handleInput,
+      
+      // 对话历史相关
+      sidebarCollapsed,
+      conversationHistoryRef,
+      toggleSidebar,
+      handleSessionChanged,
+      handleNewConversation,
+      
+      // Element Plus 图标
+      DArrowLeft,
+      DArrowRight
     }
   }
 })
 </script>
 
 <style scoped>
+/* 主布局 */
+.chat-layout {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+}
+
+/* 侧边栏样式 */
+.sidebar {
+  width: 320px;
+  background: #f5f7fa;
+  border-right: 1px solid #e4e7ed;
+  position: relative;
+  transition: width 0.3s ease;
+  flex-shrink: 0;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  overflow: visible;
+}
+
+.sidebar-toggle {
+  position: absolute;
+  top: 50%;
+  right: -12px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 48px;
+  background: #ffffff;
+  border: 1px solid #e4e7ed;
+  border-radius: 0 12px 12px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.3s ease;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  color: #909399;
+}
+
+.sidebar-toggle:hover {
+  background: #f0f9ff;
+  border-color: #409eff;
+  box-shadow: 2px 0 12px rgba(64, 158, 255, 0.2);
+  color: #409eff;
+  transform: translateY(-50%) scale(1.05);
+}
+
+.sidebar-toggle .el-icon {
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+/* 主聊天区域 */
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .chat-container {
   display: flex;
   flex-direction: column;

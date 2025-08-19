@@ -53,6 +53,15 @@ system_message = f"""
 - 💡 **生活建议**：提供实用的生活小贴士和建议
 
 """
+
+extract_title_prompt = """
+从以下消息中提取对话标题，仅输出标题即可，不要加其余的内容：
+
+消息：
+{message}
+
+对话标题：
+"""
 logger.info(f"System message initialized: {system_message}")
 prompt = SystemMessage(content=system_message)
 
@@ -79,6 +88,11 @@ class LifestyleAgent:
         token_usage = self.cal_tokens(response)
         tool_usage = self.get_tool_usage(response)
         return response, token_usage, tool_usage
+    
+    async def process_conversation_title(self, message: str, config: dict = None):
+        message = SystemMessage(content=extract_title_prompt.format(message=message))
+        response = await self.agent_executor.ainvoke({"messages": [message]}, config=config)
+        return response
 
     def cal_tokens(self, response) -> int:
         result = 0

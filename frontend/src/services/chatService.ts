@@ -29,6 +29,26 @@ export interface ChatResponse {
   error?: string
 }
 
+// 对话会话接口定义
+export interface Conversation {
+  id: number
+  session_id: string
+  title: string
+  created_at: string
+  updated_at: string
+  message_count: number
+}
+
+// 消息接口定义
+export interface Message {
+  id: number
+  session_id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: string
+  tool_used?: string
+}
+
 // 聊天服务类
 class ChatService {
   private baseUrl: string
@@ -237,19 +257,6 @@ class ChatService {
       }
     }
     
-    // 记账建议模拟
-    if (lowerMessage.includes('记账')) {
-      return {
-        message: `记账建议：
-1. 建议使用分类记账法，将支出分为必需品、娱乐、投资等类别
-2. 每天记录支出，养成良好的财务习惯
-3. 设定月度预算，控制各类支出在合理范围内
-4. 定期回顾财务状况，调整消费计划
-5. 考虑使用记账APP来简化记录过程`,
-        success: true
-      }
-    }
-    
     // 提醒设置模拟
     if (lowerMessage.includes('提醒')) {
       return {
@@ -260,8 +267,8 @@ class ChatService {
     
     // 默认响应
     const responses = [
-      '我理解您的问题。作为您的个人生活助理，我可以帮您查询天气、进行数学计算、提供记账建议等。请告诉我具体需要什么帮助？',
-      '很高兴为您服务！我可以协助处理各种日常生活事务，比如天气查询、计算问题、理财建议等。有什么我可以帮您的吗？',
+      '我理解您的问题。作为您的个人生活助理，我可以帮您查询天气、进行数学计算、设置提醒等。请告诉我具体需要什么帮助？',
+      '很高兴为您服务！我可以协助处理各种日常生活事务，比如天气查询、计算问题、提醒管理等。有什么我可以帮您的吗？',
       '感谢您的提问！我是您的智能生活助理，擅长处理实用的生活问题。请告诉我您需要什么类型的帮助？'
     ]
     
@@ -375,6 +382,210 @@ class ChatService {
       return response.ok
     } catch {
       return false
+    }
+  }
+
+  // ================== 对话历史相关方法 ==================
+
+  /**
+   * 获取当前会话ID
+   * @returns 当前会话ID
+   */
+  getCurrentSessionId(): string {
+    return this.sessionId
+  }
+
+  /**
+   * 切换到新的会话
+   * @param sessionId 可选的会话ID，不提供则生成新的
+   */
+  switchSession(sessionId?: string): void {
+    this.sessionId = sessionId || this.generateSessionId()
+  }
+
+  /**
+   * 获取所有对话会话列表
+   * @returns Promise<Conversation[]>
+   */
+  async getConversations(): Promise<Conversation[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/conversations`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch conversations')
+      }
+
+      const data = await response.json()
+      return data.conversations || []
+    } catch (error) {
+      console.error('获取对话列表失败:', error)
+      
+      // 在开发环境中返回模拟数据
+      if (import.meta.env.DEV) {
+        return [
+          {
+            id: 1,
+            session_id: 'session_2025-08-16_123456',
+            title: '天气查询和提醒设置',
+            created_at: '2025-08-16T10:30:00.000Z',
+            updated_at: '2025-08-16T11:45:00.000Z',
+            message_count: 8
+          },
+          {
+            id: 2,
+            session_id: 'session_2025-08-15_654321',
+            title: '数学计算和记账建议',
+            created_at: '2025-08-15T14:20:00.000Z',
+            updated_at: '2025-08-15T15:30:00.000Z',
+            message_count: 12
+          }
+        ]
+      }
+      
+      return []
+    }
+  }
+
+  /**
+   * 获取特定会话的消息历史
+   * @param sessionId 会话ID
+   * @param limit 返回消息数量限制，默认50
+   * @param offset 偏移量，用于分页，默认0
+   * @returns Promise<Message[]>
+   */
+  async getMessageHistory(sessionId: string, limit: number = 50, offset: number = 0): Promise<Message[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/conversations/${sessionId}/messages?limit=${limit}&offset=${offset}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch message history')
+      }
+
+      const data = await response.json()
+      return data.messages || []
+    } catch (error) {
+      console.error('获取消息历史失败:', error)
+      
+      // 在开发环境中返回模拟数据
+      if (import.meta.env.DEV && sessionId === 'session_2025-08-16_123456') {
+        return [
+          {
+            id: 1,
+            session_id: sessionId,
+            role: 'user',
+            content: '今天天气怎么样？',
+            timestamp: '2025-08-16T10:30:00.000Z'
+          },
+          {
+            id: 2,
+            session_id: sessionId,
+            role: 'assistant',
+            content: '今天北京天气晴朗，气温25°C，适合外出活动。',
+            timestamp: '2025-08-16T10:30:15.000Z',
+            tool_used: 'weather'
+          },
+          {
+            id: 3,
+            session_id: sessionId,
+            role: 'user',
+            content: '帮我设置一个下午3点的会议提醒',
+            timestamp: '2025-08-16T11:40:00.000Z'
+          },
+          {
+            id: 4,
+            session_id: sessionId,
+            role: 'assistant',
+            content: '好的，我已经为您设置了今天下午3点的会议提醒。',
+            timestamp: '2025-08-16T11:40:10.000Z',
+            tool_used: 'reminder'
+          }
+        ]
+      }
+      
+      return []
+    }
+  }
+
+  /**
+   * 删除对话会话
+   * @param sessionId 会话ID
+   * @returns Promise<boolean>
+   */
+  async deleteConversation(sessionId: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.baseUrl}/conversations/${sessionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+
+      return response.ok
+    } catch (error) {
+      console.error('删除对话失败:', error)
+      
+      // 在开发环境中模拟成功
+      if (import.meta.env.DEV) {
+        console.log(`模拟删除对话: ${sessionId}`)
+        return true
+      }
+      
+      return false
+    }
+  }
+
+  /**
+   * 搜索消息历史
+   * @param query 搜索关键词
+   * @param sessionId 可选的会话ID，不提供则搜索所有会话
+   * @returns Promise<Message[]>
+   */
+  async searchMessages(query: string, sessionId?: string): Promise<Message[]> {
+    try {
+      const url = sessionId 
+        ? `${this.baseUrl}/conversations/${sessionId}/search?q=${encodeURIComponent(query)}`
+        : `${this.baseUrl}/messages/search?q=${encodeURIComponent(query)}`
+        
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to search messages')
+      }
+
+      const data = await response.json()
+      return data.messages || []
+    } catch (error) {
+      console.error('搜索消息失败:', error)
+      
+      // 在开发环境中返回模拟搜索结果
+      if (import.meta.env.DEV) {
+        return [
+          {
+            id: 1,
+            session_id: 'session_2025-08-16_123456',
+            role: 'user',
+            content: query.includes('天气') ? '今天天气怎么样？' : '相关消息内容',
+            timestamp: '2025-08-16T10:30:00.000Z'
+          }
+        ]
+      }
+      
+      return []
     }
   }
 }
