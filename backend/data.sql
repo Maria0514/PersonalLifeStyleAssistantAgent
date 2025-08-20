@@ -31,7 +31,6 @@ CREATE TABLE IF NOT EXISTS messages(
     role TEXT CHECK(role IN ('user', 'assistant')),
     content TEXT NOT NULL,
     timestamp DATETIME DEFAULT (datetime('now', 'localtime')),  -- 使用本地时间
-,
     tool_used TEXT
 );
 

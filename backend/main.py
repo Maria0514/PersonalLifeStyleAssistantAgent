@@ -64,7 +64,7 @@ async def receive_message(message: UserMessage):
         conversationDB.create_conversation(thread_id, title['messages'][-1].content)
 
     # 添加用户消息记录
-    messageDB.add_message(thread_id, 'user', message.message, message.timestamp, None)
+    messageDB.add_message(thread_id, 'user', message.message, datetime.now().isoformat(), None)
     conversationDB.update_conversation_count(thread_id)
     start_time = time.perf_counter()
 
